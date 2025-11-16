@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Contact Form (No JS) — Nicholas Chan</title>
+    <meta
+      name="description"
+      content="Part 1 contact form for CSE 134B HW4 demonstrating semantic HTML, accessible labels, and styled layout with httpbin.org POST target."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300..900&family=Space+Grotesk:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+
+    <style>
+      :root {
+        --form-surface: color-mix(
+          in oklab,
+          var(--surface, #0f172a) 92%,
+          transparent
+        );
+        --form-border: color-mix(
+          in oklab,
+          var(--line, #1f2a3b) 85%,
+          transparent
+        );
+        --form-muted: color-mix(
+          in oklab,
+          var(--muted, #94a3b8) 92%,
+          transparent
+        );
+        --form-focus: color-mix(
+          in oklab,
+          var(--accent, #60a5fa) 85%,
+          white 15%
+        );
+        --form-error: color-mix(in oklab, crimson 75%, #420b1c);
+        --form-success: color-mix(in oklab, #34d399 75%, #0f172a);
+      }
+
+      .form-page {
+        padding-block: clamp(3rem, 7vw, 5rem) 6rem;
+      }
+
+      .form-card {
+        margin: 0 auto;
+        max-width: 720px;
+        background: var(--form-surface);
+        border: 1px solid var(--form-border);
+        border-radius: clamp(1rem, 2vw, 1.5rem);
+        padding: clamp(1.5rem, 4vw, 2.5rem);
+        box-shadow: 0 30px 60px rgba(8, 15, 35, 0.35);
+        backdrop-filter: blur(12px);
+      }
+
+      .form-card h1 {
+        font-size: clamp(2rem, 3vw, 2.5rem);
+        margin-bottom: 0.5rem;
+      }
+
+      .eyebrow {
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.16em;
+        color: var(--form-muted);
+        margin: 0 0 0.5rem;
+      }
+
+      .form-card form {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        margin-top: 2rem;
+      }
+
+      fieldset {
+        border: 0;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      legend {
+        font-family: var(--font-display, "Space Grotesk", system-ui);
+        font-size: 1.1rem;
+        color: var(--muted);
+        margin-bottom: 0.5rem;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+
+      label {
+        font-weight: 600;
+        display: flex;
+        gap: 0.5rem;
+        align-items: baseline;
+      }
+
+      .required-indicator {
+        color: var(--accent);
+        font-size: 0.85rem;
+        letter-spacing: 0.08em;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid var(--form-border);
+        border-radius: 0.85rem;
+        background: color-mix(
+          in oklab,
+          var(--surface, #0f172a) 70%,
+          transparent
+        );
+        color: var(--text, #e5e7eb);
+        font: inherit;
+        padding: 0.85rem 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease,
+          background-color 0.2s ease;
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--form-focus);
+        box-shadow: 0 0 0 3px
+          color-mix(in oklab, var(--form-focus) 35%, transparent);
+      }
+
+      textarea {
+        resize: vertical;
+        min-height: 8rem;
+      }
+
+      .field :is(input, textarea):required {
+        border-color: color-mix(in oklab, var(--form-border) 85%, transparent);
+      }
+
+      .field :is(input, textarea):optional {
+        border-style: dashed;
+      }
+
+      .field :is(input, textarea):placeholder-shown:not(:focus) {
+        border-color: color-mix(in oklab, var(--form-border) 65%, transparent);
+      }
+
+      .field :is(input, textarea):user-invalid {
+        border-color: var(--form-error);
+        box-shadow: 0 0 0 2px
+          color-mix(in oklab, var(--form-error) 35%, transparent);
+        background: color-mix(in oklab, var(--form-error) 8%, transparent);
+      }
+
+      .field :is(input, textarea):user-valid {
+        border-color: var(--form-success);
+        box-shadow: 0 0 0 2px
+          color-mix(in oklab, var(--form-success) 30%, transparent);
+        background: color-mix(in oklab, var(--form-success) 8%, transparent);
+      }
+
+      .field :is(input, textarea):user-invalid + .hint {
+        color: var(--form-error);
+      }
+
+      .field :is(input, textarea):user-valid + .hint {
+        color: var(--form-success);
+      }
+
+      .hint {
+        font-size: 0.9rem;
+        color: var(--form-muted);
+      }
+
+      .optional-pill {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 0.1rem 0.35rem;
+        border-radius: 999px;
+        border: 1px solid
+          color-mix(in oklab, var(--form-border) 60%, transparent);
+        color: var(--form-muted);
+      }
+
+      .form-feedback {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      output.feedback {
+        min-height: 2.25rem;
+        border-radius: 0.75rem;
+        border: 1px dashed
+          color-mix(in oklab, var(--form-border) 70%, transparent);
+        padding: 0.75rem 1rem;
+        font-size: 0.95rem;
+        background: color-mix(in oklab, var(--surface) 45%, transparent);
+      }
+
+      output.feedback:empty::before {
+        content: attr(data-placeholder);
+        color: var(--form-muted);
+      }
+
+      output.error {
+        border-color: color-mix(in oklab, crimson 55%, var(--form-border));
+        color: color-mix(in oklab, crimson 70%, white 30%);
+      }
+
+      output.info {
+        border-color: color-mix(in oklab, var(--form-focus) 70%, transparent);
+        color: color-mix(in oklab, var(--form-focus) 80%, white 20%);
+      }
+
+      .form-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+      }
+
+      .form-actions .btn.secondary {
+        background: transparent;
+        border: 1px solid var(--form-border);
+        color: var(--text);
+      }
+
+      .http-example {
+        margin-top: clamp(2.5rem, 6vw, 4rem);
+        border-top: 1px solid var(--form-border);
+        padding-top: clamp(2rem, 5vw, 3rem);
+        display: grid;
+        gap: 1.5rem;
+      }
+
+      .http-grid {
+        display: grid;
+        gap: 0.75rem;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      }
+
+      .http-grid dt {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        color: var(--form-muted);
+      }
+
+      .http-grid dd {
+        margin: 0;
+        font-size: 0.95rem;
+        overflow-wrap: anywhere;
+      }
+
+      .http-grid code {
+        display: inline-block;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+
+      pre {
+        background: color-mix(in oklab, var(--surface) 75%, transparent);
+        border: 1px solid var(--form-border);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        overflow-x: auto;
+        font-size: 0.9rem;
+        line-height: 1.65;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        input,
+        textarea {
+          transition: none;
+        }
+      }
+
+      @media (width <= 640px) {
+        .form-card {
+          padding: 1.25rem;
+        }
+        .form-actions {
+          flex-direction: column;
+          align-items: stretch;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="nav">
+      <div class="wrap nav-inner">
+        <div class="brand">
+          <span class="brand-dot" aria-hidden="true"></span>
+          <span>Nicholas Theodorus Chan</span>
+        </div>
+        <nav class="links" aria-label="Primary">
+          <a href="/index.html">Home</a>
+          <a href="/projects/index.html">Projects</a>
+          <a href="/about/index.html">About</a>
+          <a href="/contact/index.html">Contact</a>
+          <a
+            id="repo"
+            href="https://github.com/NicholasTc/cse134b-portfolio-nicholas-chan/tree/main"
+            aria-label="GitHub repository"
+            >Repo</a
+          >
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap form-page" id="main">
+      <section class="form-card" aria-labelledby="form-title">
+        <p class="eyebrow">CSE 134B · Homework 4 · Part 1</p>
+        <h1 id="form-title">Contact form with basic HTML/CSS</h1>
+        <p class="muted">
+          This standalone page submits directly to
+          <code>https://httpbin.org/post</code> without JavaScript. Each field
+          is labeled, keyboard friendly, and ready for screenshotting the
+          request/response flows.
+        </p>
+
+        <form action="https://httpbin.org/post" method="post">
+          <fieldset>
+            <legend>Send a message</legend>
+
+            <input type="hidden" name="possible_bot" value="true" />
+
+            <div class="field">
+              <label for="full-name"
+                >Full name
+                <span class="required-indicator" aria-hidden="true"
+                  >*</span
+                ></label
+              >
+              <input
+                id="full-name"
+                name="name"
+                type="text"
+                autocomplete="name"
+                inputmode="text"
+                required
+                minlength="2"
+                maxlength="60"
+                pattern="[A-Za-z ,.&#39;-]{2,60}"
+                title="Use 2-60 characters. Letters, spaces, commas, periods, apostrophes, and hyphens only."
+                aria-describedby="name-hint"
+                placeholder="Nicholas Chan"
+              />
+              <p id="name-hint" class="hint">
+                Required · 2-60 characters · letters/spaces/punctuation only.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="email"
+                >Email
+                <span class="required-indicator" aria-hidden="true"
+                  >*</span
+                ></label
+              >
+              <input
+                id="email"
+                name="email"
+                type="email"
+                autocomplete="email"
+                inputmode="email"
+                required
+                minlength="5"
+                maxlength="120"
+                placeholder="you@example.com"
+              />
+              <p class="hint" id="email-hint">
+                Required · must be a valid email address format.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="subject"
+                >Subject <span class="optional-pill">Optional</span></label
+              >
+              <input
+                id="subject"
+                name="subject"
+                type="text"
+                autocomplete="organization-title"
+                inputmode="text"
+                maxlength="80"
+                pattern="[-A-Za-z0-9 ,.&#39;!?()]{0,80}"
+                title="Up to 80 standard characters (letters, numbers, spaces, basic punctuation)."
+                placeholder="Let’s talk about HW4"
+              />
+              <p class="hint">
+                Optional · up to 80 characters · letters, numbers, light
+                punctuation.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="phone"
+                >Phone <span class="optional-pill">Optional</span></label
+              >
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                pattern="^\+?[0-9(). -]{7,20}$"
+                maxlength="20"
+                title="Use digits with optional spaces, parentheses, dots, dashes, or +."
+                placeholder="(555) 555-5555"
+              />
+              <p class="hint">
+                Optional · digits plus spaces, parentheses, dots, dashes, or +.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="comments"
+                >Comments
+                <span class="required-indicator" aria-hidden="true"
+                  >*</span
+                ></label
+              >
+              <textarea
+                id="comments"
+                name="comments"
+                required
+                minlength="10"
+                maxlength="500"
+                placeholder="This is a test!"
+                aria-describedby="comments-hint"
+              ></textarea>
+              <p id="comments-hint" class="hint">
+                Required · 10-500 characters. Feel free to elaborate but stay
+                concise.
+              </p>
+            </div>
+          </fieldset>
+
+          <div class="form-feedback" aria-live="polite">
+            <output
+              id="form-errors"
+              name="errors"
+              class="feedback error"
+              aria-live="assertive"
+              role="alert"
+              data-placeholder="Error messages surface here."
+            ></output>
+            <output
+              id="form-info"
+              name="info"
+              class="feedback info"
+              aria-live="polite"
+              role="status"
+              data-placeholder="Status or info updates appear here."
+            ></output>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Submit to httpbin</button>
+            <button type="reset" class="btn secondary">Reset form</button>
+          </div>
+        </form>
+
+        <section class="http-example" aria-labelledby="http-title">
+          <div>
+            <h2 id="http-title">HTTP request example (Part 1a)</h2>
+            <p class="muted">
+              Filling the form with your name, email, and message “This is a
+              test!” yields the following POST details, mirroring the headers we
+              wrote out on the midterm.
+            </p>
+          </div>
+
+          <dl class="http-grid">
+            <div>
+              <dt>Method</dt>
+              <dd>POST</dd>
+            </div>
+            <div>
+              <dt>Request URI</dt>
+              <dd>https://httpbin.org/post</dd>
+            </div>
+            <div>
+              <dt>Protocol</dt>
+              <dd>HTTP/1.1</dd>
+            </div>
+            <div>
+              <dt>Body / payload</dt>
+              <dd>
+                <code
+                  >name=Nicholas+Chan&amp;email=nicholas%40ucsd.edu&amp;subject=HW4&amp;comments=This+is+a+test%21&amp;possible_bot=true</code
+                >
+              </dd>
+            </div>
+            <div>
+              <dt>Host</dt>
+              <dd>httpbin.org</dd>
+            </div>
+            <div>
+              <dt>User-Agent</dt>
+              <dd>
+                Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36
+                (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36
+              </dd>
+            </div>
+            <div>
+              <dt>Date</dt>
+              <dd>Sun, 16 Nov 2025 18:00:00 GMT</dd>
+            </div>
+            <div>
+              <dt>Content-Type</dt>
+              <dd>application/x-www-form-urlencoded</dd>
+            </div>
+            <div>
+              <dt>Content-Length</dt>
+              <dd>101 bytes</dd>
+            </div>
+          </dl>
+
+          <pre>
+POST /post HTTP/1.1
+Host: httpbin.org
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36
+Date: Sun, 16 Nov 2025 18:00:00 GMT
+Content-Type: application/x-www-form-urlencoded
+Content-Length: 101
+
+name=Nicholas+Chan&email=nicholas%40ucsd.edu&subject=HW4&comments=This+is+a+test%21&possible_bot=true
+        </pre
+          >
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
