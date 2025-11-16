@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Contact Form (No JS) — Nicholas Chan</title>
+    <title>Contact Form (JS Validation) — Nicholas Chan</title>
     <meta
       name="description"
-      content="Part 1 contact form for CSE 134B HW4 demonstrating semantic HTML, accessible labels, and styled layout with httpbin.org POST target."
+      content="Part 3 contact form for CSE 134B HW4 showing enhanced validation, masking, and error logging powered by the Constraint Validation API."
     />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -194,6 +194,36 @@
         color: var(--form-muted);
       }
 
+      input.illegal,
+      textarea.illegal {
+        animation: flash 0.25s ease-in-out 2;
+        border-color: var(--form-error);
+      }
+
+      @keyframes flash {
+        0% {
+          box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.8);
+        }
+        100% {
+          box-shadow: 0 0 0 6px rgba(220, 38, 38, 0);
+        }
+      }
+
+      .char-counter {
+        font-size: 0.85rem;
+        color: var(--form-muted);
+        margin: 0;
+      }
+
+      .char-counter[data-state="warn"] {
+        color: color-mix(in oklab, gold 80%, var(--form-muted));
+      }
+
+      .char-counter[data-state="limit"] {
+        color: var(--form-error);
+        font-weight: 600;
+      }
+
       .form-feedback {
         display: flex;
         flex-direction: column;
@@ -325,20 +355,26 @@
 
     <main class="wrap form-page" id="main">
       <section class="form-card" aria-labelledby="form-title">
-        <p class="eyebrow">CSE 134B · Homework 4 · Part 1</p>
-        <h1 id="form-title">Contact form with basic HTML/CSS</h1>
+        <p class="eyebrow">CSE 134B · Homework 4 · Part 3</p>
+        <h1 id="form-title">Contact form with custom JS validation</h1>
         <p class="muted">
-          This standalone page submits directly to
-          <code>https://httpbin.org/post</code> without JavaScript. Each field
-          is labeled, keyboard friendly, and ready for screenshotting the
-          request/response flows.
+          This version layers the Constraint Validation API, masking, and error
+          logging on top of the original HTML/CSS experience. Submissions still
+          flow to <code>https://httpbin.org/post</code>, now accompanied by a
+          JSON record of every validation mistake.
         </p>
 
-        <form action="https://httpbin.org/post" method="post">
+        <form action="https://httpbin.org/post" method="post" novalidate>
           <fieldset>
             <legend>Send a message</legend>
 
             <input type="hidden" name="possible_bot" value="true" />
+            <input
+              type="hidden"
+              name="form-errors"
+              id="form-errors-field"
+              value="[]"
+            />
 
             <div class="field">
               <label for="full-name"
@@ -450,6 +486,14 @@
                 Required · 10-500 characters. Feel free to elaborate but stay
                 concise.
               </p>
+              <p
+                id="comments-count"
+                class="char-counter"
+                data-state="ok"
+                aria-live="polite"
+              >
+                500 characters remaining.
+              </p>
             </div>
           </fieldset>
 
@@ -548,5 +592,220 @@ name=Nicholas+Chan&email=nicholas%40ucsd.edu&subject=HW4&comments=This+is+a+test
         </section>
       </section>
     </main>
+    <script type="module">
+      (() => {
+        const form = document.querySelector("form");
+        if (!form) return;
+
+        const fields = {
+          name: document.getElementById("full-name"),
+          email: document.getElementById("email"),
+          subject: document.getElementById("subject"),
+          phone: document.getElementById("phone"),
+          comments: document.getElementById("comments"),
+        };
+
+        const errorOutput = document.getElementById("form-errors");
+        const infoOutput = document.getElementById("form-info");
+        const hiddenErrorsInput = document.getElementById("form-errors-field");
+        const commentsCounter = document.getElementById("comments-count");
+        const commentsMax =
+          Number(fields.comments?.getAttribute("maxlength")) || 0;
+
+        const fieldLabels = {
+          name: "Full name",
+          email: "Email",
+          subject: "Subject",
+          phone: "Phone",
+          comments: "Comments",
+        };
+
+        const illegalMatchers = {
+          name: /[^A-Za-z ,.'-]/g,
+          subject: /[^-A-Za-z0-9 ,.'!?()]/g,
+          phone: /[^0-9(). +-]/g,
+        };
+
+        const formErrors = [];
+        let tempErrorTimer;
+
+        const setHiddenErrors = () =>
+          (hiddenErrorsInput.value = JSON.stringify(formErrors));
+
+        const showError = (message, { temporary = false } = {}) => {
+          errorOutput.textContent = message;
+          if (!temporary) {
+            infoOutput.textContent = "";
+          }
+          if (temporary) {
+            clearTimeout(tempErrorTimer);
+            tempErrorTimer = setTimeout(() => {
+              if (errorOutput.textContent === message) {
+                errorOutput.textContent = "";
+              }
+            }, 2200);
+          }
+        };
+
+        const showInfo = (message) => {
+          infoOutput.textContent = message;
+        };
+
+        const clearOutputs = () => {
+          errorOutput.textContent = "";
+          infoOutput.textContent = "";
+        };
+
+        const enforceAllowedChars = (field) => {
+          const matcher = illegalMatchers[field.name];
+          if (!matcher) return false;
+          matcher.lastIndex = 0;
+          const hasIllegal = matcher.test(field.value);
+          matcher.lastIndex = 0;
+          if (hasIllegal) {
+            field.value = field.value.replace(matcher, "");
+            matcher.lastIndex = 0;
+            field.classList.add("illegal");
+            showError(
+              `${
+                fieldLabels[field.name] || field.name
+              }: illegal character removed.`,
+              { temporary: true }
+            );
+            setTimeout(() => field.classList.remove("illegal"), 600);
+            return true;
+          }
+          return false;
+        };
+
+        const validateField = (field) => {
+          if (!field || !field.willValidate) return;
+          field.setCustomValidity("");
+          const label = fieldLabels[field.name] || field.name;
+          const validity = field.validity;
+
+          if (field === fields.comments) {
+            const remaining = commentsMax - field.value.length;
+            if (remaining < 0) {
+              field.setCustomValidity(
+                "Please shorten your message to 500 characters or fewer."
+              );
+              return;
+            }
+          }
+
+          if (validity.valueMissing) {
+            field.setCustomValidity(`${label} is required.`);
+          } else if (validity.typeMismatch) {
+            field.setCustomValidity(
+              `Please provide a valid ${label.toLowerCase()}.`
+            );
+          } else if (validity.tooShort) {
+            field.setCustomValidity(
+              `${label} must be at least ${field.getAttribute(
+                "minlength"
+              )} characters.`
+            );
+          } else if (validity.tooLong) {
+            field.setCustomValidity(
+              `${label} must be ${field.getAttribute(
+                "maxlength"
+              )} characters or fewer.`
+            );
+          } else if (validity.patternMismatch) {
+            field.setCustomValidity(
+              `The characters entered for ${label.toLowerCase()} are not allowed.`
+            );
+          }
+        };
+
+        const updateCommentCounter = () => {
+          if (!fields.comments || !commentsCounter) return;
+          const remaining = commentsMax - fields.comments.value.length;
+          const safeRemaining = Math.max(0, remaining);
+          commentsCounter.textContent = `${safeRemaining} character${
+            safeRemaining === 1 ? "" : "s"
+          } remaining.`;
+
+          let state = "ok";
+          if (remaining <= 40 && remaining > 0) {
+            state = "warn";
+            showInfo("Heads up: you are approaching the 500 character limit.");
+          } else if (remaining === 0) {
+            state = "limit";
+            showInfo("You have filled the entire message allotment.");
+          } else if (infoOutput.textContent.startsWith("Heads up")) {
+            infoOutput.textContent = "";
+          }
+          commentsCounter.dataset.state = state;
+        };
+
+        const handleInput = (event) => {
+          const field = event.target;
+          const illegal = enforceAllowedChars(field);
+          if (!illegal) {
+            validateField(field);
+          }
+          if (field === fields.comments) {
+            updateCommentCounter();
+          }
+        };
+
+        const handleBlur = (event) => validateField(event.target);
+
+        Object.values(fields).forEach((field) => {
+          if (!field) return;
+          field.addEventListener("input", handleInput);
+          field.addEventListener("blur", handleBlur);
+        });
+
+        updateCommentCounter();
+        setHiddenErrors();
+
+        form.addEventListener("submit", (event) => {
+          Object.values(fields).forEach(validateField);
+          updateCommentCounter();
+
+          if (!form.checkValidity()) {
+            event.preventDefault();
+            const timestamp = new Date().toISOString();
+            Object.values(fields).forEach((field) => {
+              if (field && !field.validity.valid) {
+                formErrors.push({
+                  field: fieldLabels[field.name] || field.name,
+                  issue: field.validationMessage,
+                  value: field.value,
+                  time: timestamp,
+                });
+              }
+            });
+            setHiddenErrors();
+            showError(
+              "Please resolve the highlighted issues before submitting."
+            );
+            form.reportValidity();
+            return;
+          }
+
+          setHiddenErrors();
+          showInfo(
+            "Form is valid—sending to httpbin with error history attached."
+          );
+        });
+
+        form.addEventListener("reset", () => {
+          formErrors.length = 0;
+          setHiddenErrors();
+          clearOutputs();
+          window.setTimeout(() => {
+            Object.values(fields).forEach((field) =>
+              field?.classList.remove("illegal")
+            );
+            updateCommentCounter();
+          }, 0);
+          showInfo("Form reset. All logged errors cleared.");
+        });
+      })();
+    </script>
   </body>
 </html>
